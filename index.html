@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Scratch Pen Video Data Converter (Auto Width & Split Mode)</title>
-  <!-- JSZipライブラリの読み込み (JSFiddle/GitHubで動作) -->
+  <title>Scratch Pen Video Data Converter</title>
+  <!-- JSZipライブラリ (JSFiddle / GitHub Pages 等で動作) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body {
@@ -21,7 +21,25 @@
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    h1 { color: #89b4fa; text-align: center; margin-top: 0; }
+    .header-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    h1 { color: #89b4fa; margin: 0; font-size: 24px; }
+    .help-btn {
+      width: auto;
+      padding: 8px 16px;
+      background: #f9e2af;
+      color: #11111b;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .help-btn:hover { background: #fae3b0; }
+    
     .control-panel {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -40,7 +58,7 @@
       padding-top: 15px;
       margin-top: 5px;
     }
-    label { font-weight: bold; color: #a6adc8; display: block; margin-bottom: 5px; }
+    label { font-weight: bold; color: #a6adc8; display: block; margin-bottom: 5px; font-size: 14px; }
     input, select, button {
       width: 100%;
       padding: 10px;
@@ -50,7 +68,7 @@
       color: #cdd6f4;
       box-sizing: border-box;
     }
-    button {
+    .main-btn {
       background: #89b4fa;
       color: #11111b;
       font-weight: bold;
@@ -58,18 +76,23 @@
       border: none;
       transition: 0.2s;
     }
-    button:hover { background: #b4befe; }
-    button:disabled { background: #585b70; cursor: not-allowed; }
+    .main-btn:hover { background: #b4befe; }
+    .main-btn:disabled { background: #585b70; cursor: not-allowed; }
+    
     .drop-zone {
       border: 2px dashed #89b4fa;
       border-radius: 8px;
-      padding: 30px;
+      padding: 25px;
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
       background: #11111b;
       cursor: pointer;
     }
     .drop-zone:hover { background: #181825; }
+    .drop-zone-sb3 {
+      border-color: #f5c2e7;
+    }
+    
     #previewCanvas {
       display: block;
       margin: 0 auto 20px;
@@ -92,34 +115,110 @@
       background: #a6e3a1;
       transition: width 0.1s;
     }
-    #statusText { text-align: center; font-weight: bold; color: #f9e2af; }
+    #statusText { text-align: center; font-weight: bold; color: #f9e2af; margin-bottom: 15px; }
+
+    /* モーダルダイアログ（使い方表示用） */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 100;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.7);
+    }
+    .modal-content {
+      background-color: #181825;
+      margin: 5% auto;
+      padding: 25px;
+      border: 1px solid #45475a;
+      border-radius: 12px;
+      width: 85%;
+      max-width: 650px;
+      max-height: 80vh;
+      overflow-y: auto;
+      color: #cdd6f4;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.8);
+    }
+    .close-btn {
+      color: #a6adc8;
+      float: right;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #f38ba8; }
+    .guide-section {
+      background: #313244;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+    .guide-section h3 { margin-top: 0; color: #89b4fa; font-size: 16px; }
+    .guide-section ol, .guide-section ul { padding-left: 20px; margin-bottom: 0; }
+    .guide-section li { margin-bottom: 8px; line-height: 1.5; }
+    .hint-box {
+      background: #1e1e2e;
+      border-left: 4px solid #f9e2af;
+      padding: 10px 15px;
+      margin-top: 10px;
+      border-radius: 4px;
+    }
+    .scratch-link {
+      display: inline-block;
+      margin-top: 10px;
+      color: #89b4fa;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>Scratch 描画データ変換ツール (2分割ZIP出力版)</h1>
+  <div class="header-area">
+    <h1>Scratch 描画データ変換ツール</h1>
+    <button class="help-btn" id="openHelpBtn">📖 使い方・ガイド</button>
+  </div>
 
   <div class="control-panel">
     <div>
       <label>モード指定</label>
       <select id="modeSelect">
+        <option value="video" selected>動画モード (TXT/ZIP出力)</option>
+        <option value="sb3">SB3ファイル埋め込みモード</option>
         <option value="image">静止画モード</option>
-        <option value="video" selected>動画モード</option>
       </select>
     </div>
     <div>
       <label>基準の高さ (Height 固定)</label>
       <select id="heightSelect">
-        <option value="180" selected>180 (標準 16:9等)</option>
+        <option value="90" selected>90 (標準・推奨/ペン描画用)</option>
+        <option value="180">180 (標準 16:9等)</option>
         <option value="270">270 (高画質)</option>
         <option value="135">135 (軽量)</option>
-        <option value="90">90 (超軽量)</option>
+      </select>
+    </div>
+
+    <div>
+      <label>分割ファイル数 (1〜4)</label>
+      <select id="splitSelect">
+        <option value="1">1分割 (単一ファイル)</option>
+        <option value="2" selected>2分割 (ファイル1・2)</option>
+        <option value="3">3分割 (ファイル1〜3)</option>
+        <option value="4">4分割 (ファイル1〜4)</option>
+      </select>
+    </div>
+
+    <div>
+      <label>フレームレート (FPS)</label>
+      <select id="fpsSelect">
+        <option value="10">10 fps</option>
+        <option value="15" selected>15 fps (推奨)</option>
+        <option value="30">30 fps</option>
       </select>
     </div>
 
     <div class="control-full" id="videoSettings">
-      <div>
+      <div style="grid-column: span 2;">
         <label>動画の長さ（カット上限）</label>
         <select id="durationSelect">
           <option value="30">最大 30秒</option>
@@ -128,38 +227,75 @@
           <option value="Infinity" selected>無制限（動画の最後まで）</option>
         </select>
       </div>
-      <div>
-        <label>フレームレート (FPS)</label>
-        <select id="fpsSelect">
-          <option value="10">10 fps</option>
-          <option value="15" selected>15 fps</option>
-          <option value="30">30 fps</option>
-        </select>
-      </div>
     </div>
   </div>
 
+  <!-- メディアファイル入力エリア -->
   <div class="drop-zone" id="dropZone">
-    <p id="dropText">ここにファイル（画像・動画）をドラッグ＆ドロップ<br>またはクリックして選択</p>
+    <p id="dropText">ここに動画・画像ファイルをドラッグ＆ドロップ<br>またはクリックして選択</p>
     <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
   </div>
 
-  <canvas id="previewCanvas" width="320" height="180"></canvas>
+  <!-- SB3ファイル入力エリア（SB3モード時のみ表示） -->
+  <div class="drop-zone drop-zone-sb3" id="dropZoneSb3" style="display: none;">
+    <p id="dropTextSb3">【SB3モード】ベースとなる Scratch (.sb3) ファイルを選択<br>（未選択の場合は自動抽出データのみ出力されます）</p>
+    <input type="file" id="fileInputSb3" accept=".sb3" style="display: none;">
+  </div>
+
+  <canvas id="previewCanvas" width="160" height="90"></canvas>
 
   <div class="progress-bar">
     <div class="progress-fill" id="progressFill"></div>
   </div>
   <p id="statusText">待機中...</p>
 
-  <button id="convertBtn" disabled>データ作成＆ZIPダウンロード</button>
+  <button class="main-btn" id="convertBtn" disabled>データ作成＆変換実行</button>
+</div>
+
+<!-- 使い方モーダル -->
+<div id="helpModal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" id="closeHelpBtn">&times;</span>
+    <h2 style="color:#89b4fa; margin-top:0;">📖 使い方＆設定ガイド</h2>
+    
+    <p>このツールは、動画や画像を Scratch のペン描画機能で再生するためのテキストデータ（16進数カラー配列）に変換します。</p>
+
+    <div class="guide-section">
+      <h3>🎬 Scratch動画プレイヤー用ファイルの作り方</h3>
+      <ol>
+        <li><strong>モード選択:</strong> 通常出力なら「動画モード」、作品ファイルに直接組込むなら「SB3ファイル埋め込みモード」を選択します。</li>
+        <li><strong>高さの設定:</strong> 描画速度と負荷の兼ね合いから <strong>90</strong> を推奨します（※対応プレイヤーの仕様に合わせて指定してください）。</li>
+        <li><strong>動画の長さ・FPS指定:</strong> 用途に合わせてカット上限を設定します。軽量かつスムーズに動く <strong>15 fps</strong> が最もおすすめです。</li>
+        <li><strong>分割ファイル数の設定:</strong> データを Scratch のリストに読み込ませる際のメモリ負荷を分散するため、長尺動画は 2〜4 分割に設定してください。</li>
+      </ol>
+      
+      <div class="hint-box">
+        <strong>💡 制作のヒント・注意点</strong>
+        <ul>
+          <li><strong>データ容量:</strong> 動画が長くなるほどファイルサイズが膨らみます。PCのメモリが8GB程度の場合は、変換後のデータ全体で <strong>100MB以下</strong> に収めることを推奨します。</li>
+          <li><strong>フレームレート:</strong> 30 fps に設定すると、Scratch側での描画処理が追いつかずコマ落ち（処理落ち）の原因になる場合があります。</li>
+          <li><strong>分割数のメリット:</strong> 分割数を増やす（3〜4分割）と、Scratchで1度に読み込むデータサイズが小さくなり、大容量動画でも動作しやすくなります。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top: 15px; text-align: right;">
+      <a href="https://scratch.mit.edu/" target="_blank" rel="noopener" class="scratch-link">🔗 Scratch 公式サイトを開く</a>
+    </div>
+  </div>
 </div>
 
 <script>
+  // DOM要素
   const fileInput = document.getElementById('fileInput');
+  const fileInputSb3 = document.getElementById('fileInputSb3');
   const dropZone = document.getElementById('dropZone');
+  const dropZoneSb3 = document.getElementById('dropZoneSb3');
   const dropText = document.getElementById('dropText');
+  const dropTextSb3 = document.getElementById('dropTextSb3');
   const modeSelect = document.getElementById('modeSelect');
   const heightSelect = document.getElementById('heightSelect');
+  const splitSelect = document.getElementById('splitSelect');
   const durationSelect = document.getElementById('durationSelect');
   const fpsSelect = document.getElementById('fpsSelect');
   const videoSettings = document.getElementById('videoSettings');
@@ -169,37 +305,70 @@
   const progressFill = document.getElementById('progressFill');
   const statusText = document.getElementById('statusText');
 
-  let loadedFile = null;
+  // モーダル関連
+  const helpModal = document.getElementById('helpModal');
+  const openHelpBtn = document.getElementById('openHelpBtn');
+  const closeHelpBtn = document.getElementById('closeHelpBtn');
 
+  let loadedMediaFile = null;
+  let loadedSb3File = null;
+
+  // モーダル開閉
+  openHelpBtn.onclick = () => helpModal.style.display = "block";
+  closeHelpBtn.onclick = () => helpModal.style.display = "none";
+  window.onclick = (e) => { if (e.target === helpModal) helpModal.style.display = "none"; };
+
+  // モード切替制御
   modeSelect.addEventListener('change', () => {
-    videoSettings.style.display = modeSelect.value === 'video' ? 'grid' : 'none';
+    const mode = modeSelect.value;
+    videoSettings.style.display = (mode === 'video' || mode === 'sb3') ? 'grid' : 'none';
+    dropZoneSb3.style.display = (mode === 'sb3') ? 'block' : 'none';
   });
 
+  // ドロップゾーン（メディア）
   dropZone.addEventListener('click', () => fileInput.click());
   dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#a6e3a1'; });
   dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#89b4fa'; });
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.style.borderColor = '#89b4fa';
-    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files.length > 0) handleMediaFile(e.dataTransfer.files[0]);
   });
   fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    if (e.target.files.length > 0) handleMediaFile(e.target.files[0]);
   });
 
-  function handleFile(file) {
-    loadedFile = file;
-    dropText.innerText = `選択完了: ${file.name}`;
+  // ドロップゾーン（SB3）
+  dropZoneSb3.addEventListener('click', () => fileInputSb3.click());
+  dropZoneSb3.addEventListener('dragover', (e) => { e.preventDefault(); dropZoneSb3.style.borderColor = '#a6e3a1'; });
+  dropZoneSb3.addEventListener('dragleave', () => { dropZoneSb3.style.borderColor = '#f5c2e7'; });
+  dropZoneSb3.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZoneSb3.style.borderColor = '#f5c2e7';
+    if (e.dataTransfer.files.length > 0) handleSb3File(e.dataTransfer.files[0]);
+  });
+  fileInputSb3.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleSb3File(e.target.files[0]);
+  });
+
+  function handleMediaFile(file) {
+    loadedMediaFile = file;
+    dropText.innerText = `メディア選択完了: ${file.name}`;
     convertBtn.disabled = false;
     statusText.innerText = "準備完了";
 
-    if (file.type.startsWith('video/')) {
+    if (file.type.startsWith('video/') && modeSelect.value === 'image') {
       modeSelect.value = 'video';
       videoSettings.style.display = 'grid';
-    } else if (file.type.startsWith('image/')) {
+    } else if (file.type.startsWith('image/') && modeSelect.value === 'video') {
       modeSelect.value = 'image';
       videoSettings.style.display = 'none';
     }
+  }
+
+  function handleSb3File(file) {
+    loadedSb3File = file;
+    dropTextSb3.innerText = `SB3選択完了: ${file.name}`;
   }
 
   function calculateTargetDimensions(srcW, srcH, fixedH) {
@@ -208,19 +377,6 @@
     const targetW = Math.round(targetH * aspect);
     return { targetW, targetH };
   }
-
-  convertBtn.addEventListener('click', async () => {
-    if (!loadedFile) return;
-    convertBtn.disabled = true;
-    
-    if (modeSelect.value === 'image') {
-      await processImage(loadedFile);
-    } else {
-      await processVideo(loadedFile);
-    }
-
-    convertBtn.disabled = false;
-  });
 
   function drawAspectFit(element, srcW, srcH, targetW, targetH) {
     ctx.fillStyle = "#FFFFFF";
@@ -248,25 +404,41 @@
     return lines.join('\n') + '\n';
   }
 
-  // 静止画処理（静止画は分割不要なためそのまま1ファイルでZIP化）
+  // メイン変換処理
+  convertBtn.addEventListener('click', async () => {
+    if (!loadedMediaFile) return;
+    convertBtn.disabled = true;
+
+    const mode = modeSelect.value;
+    if (mode === 'image') {
+      await processImage(loadedMediaFile);
+    } else {
+      await processVideo(loadedMediaFile, mode === 'sb3');
+    }
+
+    convertBtn.disabled = false;
+  });
+
+  // 静止画処理
   function processImage(file) {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const fixedH = Number(heightSelect.value);
         const { targetW, targetH } = calculateTargetDimensions(img.width, img.height, fixedH);
-        
+
         previewCanvas.width = targetW;
         previewCanvas.height = targetH;
 
         drawAspectFit(img, img.width, img.height, targetW, targetH);
-        
-        const headerText = `1\n15\n${targetW}\n`;
+
+        // ヘッダー（4行構成：1行目=1, 2行目=15, 3行目=幅, 4行目=分割数1）
+        const headerText = `1\n15\n${targetW}\n1\n`;
         const textData = getFrameTextChunk(targetW, targetH);
-        
+
         const zip = new JSZip();
         zip.file(`image_data_${targetW}x${targetH}.txt`, headerText + textData);
-        
+
         zip.generateAsync({ type: "blob" }).then((content) => {
           downloadBlob(content, `image_data_${targetW}x${targetH}.zip`);
           statusText.innerText = `静止画の変換が完了しました！ (解像度: ${targetW}×${targetH})`;
@@ -278,8 +450,8 @@
     });
   }
 
-  // 動画処理（半分の位置で分割し、ファイル1にのみ全体合算ヘッダーを付与）
-  function processVideo(file) {
+  // 動画処理（分割・SB3組み込み対応）
+  function processVideo(file, isSb3Mode) {
     return new Promise((resolve) => {
       const video = document.createElement('video');
       video.src = URL.createObjectURL(file);
@@ -298,17 +470,17 @@
         const totalFrames = Math.floor(maxDuration * fps);
         const frameInterval = 1 / fps;
 
-        // 分割位置（全体の半分のフレーム数）の算出
-        const splitIndex = Math.ceil(totalFrames / 2);
+        const splitCount = Number(splitSelect.value); // 1〜4
+        const framesPerSplit = Math.ceil(totalFrames / splitCount);
 
-        const file1Chunks = [];
-        const file2Chunks = [];
+        // 各分割用文字列バッファの初期化
+        const partChunks = Array.from({ length: splitCount }, () => []);
 
-        // ヘッダー情報（全フレーム数、FPS、横幅）はファイル1の先頭にのみ入れる
-        const headerText = `${totalFrames}\n${fps}\n${targetW}\n`;
-        file1Chunks.push(headerText);
+        // ヘッダーはファイル1 (index 0) のみ追加（4行構成：総フレーム数、FPS、横幅、分割数）
+        const headerText = `${totalFrames}\n${fps}\n${targetW}\n${splitCount}\n`;
+        partChunks[0].push(headerText);
 
-        statusText.innerText = `動画変換中... (解像度: ${targetW}×${targetH} / 全 ${totalFrames} フレーム)`;
+        statusText.innerText = `動画変換中... (解像度: ${targetW}×${targetH} / 全 ${totalFrames} フレーム / ${splitCount}分割)`;
 
         for (let frame = 0; frame < totalFrames; frame++) {
           video.currentTime = frame * frameInterval;
@@ -317,12 +489,11 @@
           drawAspectFit(video, video.videoWidth, video.videoHeight, targetW, targetH);
           const frameText = getFrameTextChunk(targetW, targetH);
 
-          // 半分を境にファイル1とファイル2に振り分け
-          if (frame < splitIndex) {
-            file1Chunks.push(frameText);
-          } else {
-            file2Chunks.push(frameText);
-          }
+          // 分割インデックスの判定
+          let targetPartIndex = Math.floor(frame / framesPerSplit);
+          if (targetPartIndex >= splitCount) targetPartIndex = splitCount - 1;
+
+          partChunks[targetPartIndex].push(frameText);
 
           const percent = Math.round(((frame + 1) / totalFrames) * 100);
           progressFill.style.width = `${percent}%`;
@@ -331,20 +502,78 @@
           if (frame % 5 === 0) await new Promise(r => setTimeout(r, 10));
         }
 
-        statusText.innerText = "ZIPファイルを作成中...";
-        
-        const zip = new JSZip();
-        // ファイル1とファイル2をZIPに追加
-        zip.file(`video_data_part1_${targetW}x${targetH}.txt`, file1Chunks.join(''));
-        zip.file(`video_data_part2_${targetW}x${targetH}.txt`, file2Chunks.join(''));
+        // 分割文字列の完成
+        const partStrings = partChunks.map(chunks => chunks.join(''));
 
-        zip.generateAsync({ type: "blob" }).then((content) => {
-          downloadBlob(content, `video_data_split_${fps}fps_${targetW}x${targetH}.zip`);
-          statusText.innerText = "動画の分割変換＆ZIPダウンロードが完了しました！";
-          resolve();
-        });
+        if (isSb3Mode && loadedSb3File) {
+          statusText.innerText = "SB3ファイル内にデータを挿入中...";
+          await injectDataIntoSb3(loadedSb3File, partStrings, targetW, targetH, fps);
+        } else {
+          statusText.innerText = "ZIPファイルを作成中...";
+          const zip = new JSZip();
+          for (let i = 0; i < splitCount; i++) {
+            zip.file(`video_data_part${i + 1}_${targetW}x${targetH}.txt`, partStrings[i]);
+          }
+          const content = await zip.generateAsync({ type: "blob" });
+          downloadBlob(content, `video_data_split${splitCount}_${fps}fps_${targetW}x${targetH}.zip`);
+        }
+
+        statusText.innerText = "すべての処理が完了しました！";
+        resolve();
       };
     });
+  }
+
+  // SB3ファイル解凍・project.json書き換え・再圧縮処理
+  async function injectDataIntoSb3(sb3File, partStrings, targetW, targetH, fps) {
+    const sb3Zip = await JSZip.loadAsync(sb3File);
+    const jsonFile = sb3Zip.file("project.json");
+
+    if (!jsonFile) {
+      alert("選択されたSB3ファイル内に project.json が見つかりませんでした。");
+      return;
+    }
+
+    const jsonText = await jsonFile.async("text");
+    const projectData = JSON.parse(jsonText);
+
+    // 各ファイル（1〜4）用の指定文字列（配列インデックス0〜3）を準備
+    const fileContents = [
+      partStrings[0] || "",
+      partStrings[1] || "",
+      partStrings[2] || "",
+      partStrings[3] || ""
+    ];
+
+    // 全ターゲット（ステージ・スプライト）から対象リストを探して更新
+    let updatedCount = 0;
+    for (const target of projectData.targets) {
+      if (target.lists) {
+        for (const listKey in target.lists) {
+          const listInfo = target.lists[listKey];
+          const listName = listInfo[0]; // リスト名
+
+          // 「ファイル 1」「ファイル2」「ファイル3」「ファイル4」等の名称に合致するかチェック
+          for (let i = 1; i <= 4; i++) {
+            const pattern = new RegExp(`ファイル\\s*${i}`, 'i');
+            if (pattern.test(listName)) {
+              // 改行で分割してリストの要素配列として挿入
+              const lines = fileContents[i - 1].split('\n').filter(line => line.length > 0);
+              listInfo[1] = lines;
+              updatedCount++;
+            }
+          }
+        }
+      }
+    }
+
+    // project.json を再書き込み
+    sb3Zip.file("project.json", JSON.stringify(projectData));
+
+    // 再圧縮してSB3ファイルとしてダウンロード
+    const outputBlob = await sb3Zip.generateAsync({ type: "blob" });
+    downloadBlob(outputBlob, `output_project_${fps}fps_${targetW}x${targetH}.sb3`);
+    statusText.innerText = `SB3埋め込み完了! (対象リスト: ${updatedCount} 個を更新)`;
   }
 
   function downloadBlob(blob, fileName) {
