@@ -2,7 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Scratch Pen Video Data Converter (Auto Width Mode)</title>
+  <title>Scratch Pen Video Data Converter (Auto Width & Split Mode)</title>
+  <!-- JSZipライブラリの読み込み (JSFiddle/GitHubで動作) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -96,7 +98,7 @@
 <body>
 
 <div class="container">
-  <h1>Scratch 描画データ変換ツール (横幅自動可変版)</h1>
+  <h1>Scratch 描画データ変換ツール (2分割ZIP出力版)</h1>
 
   <div class="control-panel">
     <div>
@@ -149,7 +151,7 @@
   </div>
   <p id="statusText">待機中...</p>
 
-  <button id="convertBtn" disabled>データ作成＆ダウンロード</button>
+  <button id="convertBtn" disabled>データ作成＆ZIPダウンロード</button>
 </div>
 
 <script>
@@ -200,11 +202,10 @@
     }
   }
 
-  // 元のメディアの縦横比を維持したまま、指定した高さを基準に横幅を自動計算する関数
   function calculateTargetDimensions(srcW, srcH, fixedH) {
     const aspect = srcW / srcH;
     const targetH = fixedH;
-    const targetW = Math.round(targetH * aspect); // 比率を維持して横幅を自動算出
+    const targetW = Math.round(targetH * aspect);
     return { targetW, targetH };
   }
 
@@ -247,7 +248,7 @@
     return lines.join('\n') + '\n';
   }
 
-  // 静止画処理
+  // 静止画処理（静止画は分割不要なためそのまま1ファイルでZIP化）
   function processImage(file) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -260,22 +261,24 @@
 
         drawAspectFit(img, img.width, img.height, targetW, targetH);
         
-        // 1行目: 総フレーム数 (1)
-        // 2行目: FPS (15)
-        // 3行目: 自動計算された横幅 (targetW)
         const headerText = `1\n15\n${targetW}\n`;
         const textData = getFrameTextChunk(targetW, targetH);
         
-        downloadChunksAsBlob([headerText, textData], `image_data_${targetW}x${targetH}.txt`);
-        statusText.innerText = `静止画の変換が完了しました！ (解像度: ${targetW}×${targetH})`;
-        progressFill.style.width = "100%";
-        resolve();
+        const zip = new JSZip();
+        zip.file(`image_data_${targetW}x${targetH}.txt`, headerText + textData);
+        
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          downloadBlob(content, `image_data_${targetW}x${targetH}.zip`);
+          statusText.innerText = `静止画の変換が完了しました！ (解像度: ${targetW}×${targetH})`;
+          progressFill.style.width = "100%";
+          resolve();
+        });
       };
       img.src = URL.createObjectURL(file);
     });
   }
 
-  // 動画処理
+  // 動画処理（半分の位置で分割し、ファイル1にのみ全体合算ヘッダーを付与）
   function processVideo(file) {
     return new Promise((resolve) => {
       const video = document.createElement('video');
@@ -284,7 +287,6 @@
 
       video.onloadedmetadata = async () => {
         const fixedH = Number(heightSelect.value);
-        // 動画の元サイズから横幅を自動計算
         const { targetW, targetH } = calculateTargetDimensions(video.videoWidth, video.videoHeight, fixedH);
 
         previewCanvas.width = targetW;
@@ -296,14 +298,15 @@
         const totalFrames = Math.floor(maxDuration * fps);
         const frameInterval = 1 / fps;
 
-        const blobChunks = [];
-        
-        // ヘッダー（上から3行）
-        // 1行目: 総フレーム数
-        // 2行目: FPSの数値 (10, 15, 30など)
-        // 3行目: 自動計算された横幅の数値 (targetW)
+        // 分割位置（全体の半分のフレーム数）の算出
+        const splitIndex = Math.ceil(totalFrames / 2);
+
+        const file1Chunks = [];
+        const file2Chunks = [];
+
+        // ヘッダー情報（全フレーム数、FPS、横幅）はファイル1の先頭にのみ入れる
         const headerText = `${totalFrames}\n${fps}\n${targetW}\n`;
-        blobChunks.push(new Blob([headerText], { type: 'text/plain' }));
+        file1Chunks.push(headerText);
 
         statusText.innerText = `動画変換中... (解像度: ${targetW}×${targetH} / 全 ${totalFrames} フレーム)`;
 
@@ -312,9 +315,14 @@
           await new Promise(r => video.onseeked = r);
 
           drawAspectFit(video, video.videoWidth, video.videoHeight, targetW, targetH);
-          
           const frameText = getFrameTextChunk(targetW, targetH);
-          blobChunks.push(new Blob([frameText], { type: 'text/plain' }));
+
+          // 半分を境にファイル1とファイル2に振り分け
+          if (frame < splitIndex) {
+            file1Chunks.push(frameText);
+          } else {
+            file2Chunks.push(frameText);
+          }
 
           const percent = Math.round(((frame + 1) / totalFrames) * 100);
           progressFill.style.width = `${percent}%`;
@@ -323,17 +331,24 @@
           if (frame % 5 === 0) await new Promise(r => setTimeout(r, 10));
         }
 
-        statusText.innerText = "テキストファイル結合＆ダウンロード中...";
-        downloadChunksAsBlob(blobChunks, `video_data_${fps}fps_${targetW}x${targetH}.txt`);
-        statusText.innerText = "動画変換が完了しました！";
-        resolve();
+        statusText.innerText = "ZIPファイルを作成中...";
+        
+        const zip = new JSZip();
+        // ファイル1とファイル2をZIPに追加
+        zip.file(`video_data_part1_${targetW}x${targetH}.txt`, file1Chunks.join(''));
+        zip.file(`video_data_part2_${targetW}x${targetH}.txt`, file2Chunks.join(''));
+
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          downloadBlob(content, `video_data_split_${fps}fps_${targetW}x${targetH}.zip`);
+          statusText.innerText = "動画の分割変換＆ZIPダウンロードが完了しました！";
+          resolve();
+        });
       };
     });
   }
 
-  function downloadChunksAsBlob(chunks, fileName) {
-    const finalBlob = new Blob(chunks, { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(finalBlob);
+  function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
